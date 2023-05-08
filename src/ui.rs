@@ -1,14 +1,23 @@
-mod crossterm_ui;
 mod error;
-mod supported_backend;
 
-pub use supported_backend::SupportedBackend;
+use std::io::Stdout;
+
 pub use error::Error;
 use crate::ledger::Ledger;
 use tui::{
-    backend::Backend,
+    backend::CrosstermBackend,
     Terminal,
     widgets::{Block, Borders},
+};
+use crossterm::{
+    terminal::{
+        enable_raw_mode,
+        disable_raw_mode,
+        EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
+    execute,
+    event::{self, DisableMouseCapture, EnableMouseCapture},
 };
 
 enum LedgerUIModes {
@@ -20,15 +29,13 @@ enum LedgerUIModes {
     Exit,
 }
 
-pub struct LedgerUI<B: Backend>
-    where LedgerUI<B>: SupportedBackend {
-    terminal: Terminal<B>,
+pub struct LedgerUI {
+    terminal: Terminal<CrosstermBackend<Stdout>>,
     ledger: Ledger,
     mode: LedgerUIModes,
 }
 
-impl<B: Backend> LedgerUI<B>
-    where LedgerUI<B>: SupportedBackend {
+impl LedgerUI {
     const HELP: [(&'static str, &'static str); 5] = [
         ("/<search>", "search for people"),
         ("a", "show all totals"),
@@ -62,12 +69,35 @@ impl<B: Backend> LedgerUI<B>
             false
         }
     }
+
+    pub fn new(ledger: Ledger) -> Result<Self, Error> {
+        enable_raw_mode()?;
+        let stdout = std::io::stdout();
+        let backend = CrosstermBackend::new(stdout);
+        let mut terminal = Terminal::new(backend)?;
+
+        execute!(
+            terminal.backend_mut(),
+            EnterAlternateScreen,
+            EnableMouseCapture,
+        )?;
+
+        Ok(Self {
+            ledger,
+            terminal,
+            mode: LedgerUIModes::ListTotal,
+        })
+    }
 }
 
-impl<B: Backend> Drop for LedgerUI<B>
-    where LedgerUI<B>: SupportedBackend {
+impl Drop for LedgerUI {
     fn drop(&mut self) {
-        self.reset().unwrap();
+        disable_raw_mode().expect("Failed to disable raw mode");
+        execute!(
+            self.terminal.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture,
+        ).expect("Failed to reset screen");
     }
 }
 
