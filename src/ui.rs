@@ -8,6 +8,7 @@ use crate::ledger::Ledger;
 use tui::{
     backend::Backend,
     Terminal,
+    widgets::{Block, Borders},
 };
 
 enum LedgerUIModes {
@@ -40,6 +41,18 @@ impl<B: Backend> LedgerUI<B>
         -> Result<Self, Error> {
         let ledger = Ledger::from_path(path.as_ref())?;
         Self::new(ledger)
+    }
+
+    pub fn draw_app(&mut self) -> Result<(), Error> {
+        self.terminal.draw(|f| {
+            let size = f.size();
+            let block = Block::default()
+                .title("Block")
+                .borders(Borders::ALL);
+            f.render_widget(block, size);
+        })?;
+
+        Ok(())
     }
 
     pub fn to_quit(&self) -> bool {

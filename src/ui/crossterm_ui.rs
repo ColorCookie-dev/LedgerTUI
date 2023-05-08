@@ -1,3 +1,7 @@
+use crate::ui::Error as Error;
+use crate::ui::SupportedBackend;
+use crate::ledger::Ledger;
+use crate::ui::{LedgerUI, LedgerUIModes};
 use std::io::Stdout;
 use crossterm::{
     terminal::{
@@ -12,14 +16,10 @@ use crossterm::{
     },
     execute,
 };
-use crate::ui::Error as Error;
-use crate::ui::SupportedBackend;
-use crate::ledger::Ledger;
 use tui::{
     backend::CrosstermBackend,
     Terminal,
 };
-use crate::ui::{LedgerUI, LedgerUIModes};
 
 
 impl SupportedBackend for LedgerUI<CrosstermBackend<Stdout>> {
