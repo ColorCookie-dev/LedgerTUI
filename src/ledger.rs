@@ -1,11 +1,12 @@
 mod record;
 mod error;
 
-use csv::Reader;
 // use std::collections::HashMap;
 use record::Record;
 pub use error::Error;
+use serde::Serialize;
 
+#[derive(Debug)]
 pub struct Ledger {
     records: Vec<Record>,
     // totals: HashMap<String, i32>,
@@ -14,7 +15,7 @@ pub struct Ledger {
 impl Ledger {
     pub fn from_path<'a>(path: impl std::convert::AsRef<std::path::Path>)
         -> Result<Self, Error> {
-        let mut records = Reader::from_path(path)?;
+        let mut records = csv::Reader::from_path(path)?;
         let records = records.deserialize::<Record>()
             .flatten()
             .collect::<Vec<Record>>();
@@ -32,6 +33,20 @@ impl Ledger {
         */
 
         Ok(Self { records, /* totals, */ })
+    }
+
+    pub fn new() -> Self {
+        Self { records: Vec::new() }
+    }
+
+    pub fn save_to_path(&self, path: impl AsRef<std::path::Path>)
+        -> Result<(), std::io::Error> {
+        let mut writer = csv::Writer::from_path(path.as_ref())?;
+        for entry in self.entries() {
+            writer.serialize(entry)?;
+        }
+
+        Ok(())
     }
 
     pub fn add_entry(&mut self, name: &str, amount: i32) {
@@ -55,3 +70,26 @@ impl Ledger {
     }
 }
 
+impl PartialEq for Ledger {
+    fn eq(&self, other: &Self) -> bool {
+        self.entries().eq(other.entries())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Ledger;
+
+    #[test]
+    fn test_ledger_write_path()
+        -> Result<(), Box<dyn std::error::Error>> {
+        let path = std::path::Path::new("ledger.csv");
+        let mut ledger = Ledger::new();
+        ledger.add_entry("Alice", 1000);
+        ledger.add_entry("Bob", -100);
+        ledger.save_to_path(path)?;
+        let new_ledger = Ledger::from_path(path)?;
+        assert_eq!(ledger, new_ledger);
+        Ok(())
+    }
+}
