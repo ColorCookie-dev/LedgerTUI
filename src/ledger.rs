@@ -2,9 +2,8 @@ mod record;
 mod error;
 
 // use std::collections::HashMap;
-use record::Record;
+pub use record::Record;
 pub use error::Error;
-use serde::Serialize;
 
 #[derive(Debug)]
 pub struct Ledger {
