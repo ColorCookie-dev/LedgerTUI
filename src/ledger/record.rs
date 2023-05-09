@@ -17,8 +17,12 @@ impl PartialEq for Record {
 }
 
 impl Record {
-    pub fn name(&self) -> &str {
+    pub fn recipient(&self) -> &str {
         &self.recipient
+    }
+
+    pub fn time(&self) -> DateTime<Utc> {
+        self.transaction_time
     }
 
     pub fn amount(&self) -> i32 {
@@ -34,4 +38,3 @@ impl Record {
         }
     }
 }
-
