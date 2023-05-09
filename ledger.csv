@@ -1,3 +1,3 @@
-uuid,name,amount
-48e892f8-2490-49e0-9abe-4a788e86a713,Alice,1000
-dbf89f9a-7446-40ff-b04c-0471d66a5de3,Bob,-100
+transaction_id,recipient,transaction_amount,transaction_time
+a77f1684-0584-4f8e-9b24-25ff19a7dcd5,Alice,1000,2023-05-09T08:11:41.283255651Z
+de674efe-af06-43e0-86f0-9be9dd30ff60,Bob,-100,2023-05-09T08:11:41.283269257Z
