@@ -64,7 +64,7 @@ impl Ledger {
 
     pub fn total(&mut self, name: impl AsRef<str>) -> i32 {
         self.records.iter()
-            .filter(|rec| rec.name() == name.as_ref())
+            .filter(|rec| rec.recipient() == name.as_ref())
             .fold(0, |total, rec| total + rec.amount())
     }
 }
