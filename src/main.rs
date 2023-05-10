@@ -26,12 +26,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         let name_len = 30;
         let amount_len = 10;
         let time_len = time.len() as u16;
-        let spacing = size.width - name_len - amount_len - time_len;
+        let spacing = size.width - (name_len + amount_len + time_len + 4) - 2;
         ListItem::new(
-            format!("{name:<30}{space}{amount:>10}    {time}",
+            format!("{name:<30}{space}{amount:>10}{space2}{time}",
                     name = name,
-                    amount = amount,
                     space = " ".repeat(spacing as usize),
+                    amount = amount,
+                    space2 = " ".repeat(4),
                     time = time,
             )
         )

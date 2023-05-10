@@ -77,6 +77,8 @@ impl PartialEq for Ledger {
 
 #[cfg(test)]
 mod test {
+    use itertools::Itertools;
+
     use super::Ledger;
 
     #[test]
@@ -88,6 +90,37 @@ mod test {
         ledger.add_entry("Bob", -100);
         ledger.save_to_path(path)?;
         let new_ledger = Ledger::from_path(path)?;
+        assert_eq!(ledger, new_ledger);
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn fill_with_random_data() -> Result<(), Box<dyn std::error::Error>> {
+        use rand::{Rng, thread_rng};
+        let ledger_path = "ledger.csv";
+        let popular_names = "popular-names.txt";
+        let mut ledger = Ledger::new();
+
+        let name_rows = std::fs::read_to_string(popular_names)
+            .expect(&format!("Failed to read {} file", popular_names));
+        let names = name_rows.lines().map(|line| line.
+                                          split_once('\t')
+                                          .unwrap_or(("", "")).0
+                                          ).collect::<Vec<&str>>();
+
+        let no_of_entries = 100;
+        // Fill with random values
+        let total_no_of_names = names.len();
+        (1..=no_of_entries)
+            .map(|_| thread_rng().gen_range(0..total_no_of_names))
+            .filter_map(|idx| names.get(idx))
+            .cloned()
+            .map(|name| (name, thread_rng().gen_range(-10000..=10000)))
+            .for_each(|(name, amt)| ledger.add_entry(name, amt));
+
+        ledger.save_to_path(ledger_path)?;
+        let new_ledger = Ledger::from_path(ledger_path)?;
         assert_eq!(ledger, new_ledger);
         Ok(())
     }

@@ -21,3 +21,6 @@ features = [
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
     "serde"
 ]
+
+[dev-dependencies]
+rand = "0.8.5"

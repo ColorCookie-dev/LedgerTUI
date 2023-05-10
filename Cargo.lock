@@ -526,6 +526,7 @@ dependencies = [
  "crossterm 0.26.1",
  "csv",
  "itertools",
+ "rand",
  "serde",
  "tui",
  "uuid",
