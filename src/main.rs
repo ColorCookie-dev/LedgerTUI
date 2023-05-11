@@ -19,8 +19,11 @@ fn main() -> Result<()> {
     let mut terminal = Crossterminal::new()?;
     let terminal = &mut terminal.terminal;
 
+    let size = terminal.size()
+        .map_err(|e|
+                 Error::TerminalIOError("Error determining terminal size", e)
+         )?;
     let ledger_list = ledger.entries().map(|entry| {
-        let size = terminal.size().expect("Error determining terminal size");
         let name = entry.recipient();
         let amount = entry.amount();
         let time = entry.time();
@@ -45,7 +48,7 @@ fn main() -> Result<()> {
     let mut quit = false;
     while quit == false {
         terminal.draw(|f| list_ledger_app.draw_app(f))
-            .map_err(|e| Error::TerminalIOError(e))?;
+            .map_err(|e| Error::TerminalIOError("Cannot draw UI", e))?;
         std::thread::sleep(Duration::from_secs(5));
         break;
     }

@@ -21,17 +21,20 @@ pub struct Crossterminal {
 
 impl Crossterminal {
     pub fn new() -> Result<Self> {
-        enable_raw_mode().map_err(|e| Error::TerminalIOError(e))?;
+        enable_raw_mode()
+            .map_err(|e| Error::TerminalIOError("Unable to enter raw mode",
+                                                e))?;
         let stdout = std::io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)
-            .map_err(|e| Error::TerminalIOError(e))?;
+            .map_err(|e| Error::TerminalIOError("Coudn't create new Terminal",
+                                                e))?;
 
         execute!(
             terminal.backend_mut(),
             EnterAlternateScreen,
             EnableMouseCapture,
-        ).map_err(|e| Error::TerminalIOError(e))?;
+        ).map_err(|e| Error::TerminalIOError("Unable to write to terminal", e))?;
 
         Ok(Self {
             terminal,
