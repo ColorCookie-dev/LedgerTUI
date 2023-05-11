@@ -1,4 +1,4 @@
-use super::error::Error;
+use crate::prelude::*;
 use tui::{
     backend::CrosstermBackend,
     Terminal,
@@ -20,17 +20,18 @@ pub struct Crossterminal {
 }
 
 impl Crossterminal {
-    pub fn new() -> Result<Self, Error> {
-        enable_raw_mode()?;
+    pub fn new() -> Result<Self> {
+        enable_raw_mode().map_err(|e| Error::TerminalIOError(e))?;
         let stdout = std::io::stdout();
         let backend = CrosstermBackend::new(stdout);
-        let mut terminal = Terminal::new(backend)?;
+        let mut terminal = Terminal::new(backend)
+            .map_err(|e| Error::TerminalIOError(e))?;
 
         execute!(
             terminal.backend_mut(),
             EnterAlternateScreen,
             EnableMouseCapture,
-        )?;
+        ).map_err(|e| Error::TerminalIOError(e))?;
 
         Ok(Self {
             terminal,

@@ -1,8 +1,6 @@
-mod error;
 mod terminal;
 
 pub use terminal::Crossterminal;
-pub use error::Error;
 use tui::{
     widgets::{
         Block,
@@ -29,8 +27,11 @@ impl<'a> FullListView<'a> {
     pub fn draw_app<B>(&mut self, f: &mut Frame<B>)
     where B: Backend {
         let size = f.size();
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("Entries");
         let items = List::new(&self.record_list[..])
-            .block(Block::default().borders(Borders::ALL).title("Entries"))
+            .block(block)
             .start_corner(tui::layout::Corner::TopLeft)
             .highlight_style(
                 Style::default()

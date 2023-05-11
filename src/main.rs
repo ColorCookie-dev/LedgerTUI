@@ -1,6 +1,9 @@
 mod ledger;
 mod ui;
+mod error;
+mod prelude;
 
+use crate::prelude::*;
 use tui::{
     widgets::ListItem,
 };
@@ -8,9 +11,9 @@ use ui::FullListView;
 
 use crate::ui::Crossterminal;
 use crate::ledger::Ledger;
-use std::{error::Error, time::Duration};
+use std::time::Duration;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let mut ledger = Ledger::from_path("ledger.csv")?;
 
     let mut terminal = Crossterminal::new()?;
@@ -41,7 +44,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut quit = false;
     while quit == false {
-        terminal.draw(|f| list_ledger_app.draw_app(f))?;
+        terminal.draw(|f| list_ledger_app.draw_app(f))
+            .map_err(|e| Error::TerminalIOError(e))?;
         std::thread::sleep(Duration::from_secs(5));
         break;
     }
