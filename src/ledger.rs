@@ -1,7 +1,5 @@
 mod record;
 
-// use std::collections::HashMap;
-use crate::prelude::*;
 pub use record::Record;
 
 #[derive(Debug)]
@@ -12,7 +10,7 @@ pub struct Ledger {
 
 impl Ledger {
     pub fn from_path<'a>(path: impl std::convert::AsRef<std::path::Path>)
-        -> Result<Self> {
+        -> anyhow::Result<Self> {
         let mut records = csv::Reader::from_path(path)?;
         let records = records.deserialize::<Record>()
             .flatten()
@@ -33,12 +31,16 @@ impl Ledger {
         Ok(Self { records, /* totals, */ })
     }
 
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+
     pub fn new() -> Self {
         Self { records: Vec::new() }
     }
 
     pub fn save_to_path(&self, path: impl AsRef<std::path::Path>)
-        -> Result<()> {
+        -> anyhow::Result<()> {
         let mut writer = csv::Writer::from_path(path.as_ref())?;
         for entry in self.entries() {
             writer.serialize(entry)?;
@@ -77,11 +79,10 @@ impl PartialEq for Ledger {
 #[cfg(test)]
 mod test {
     use super::Ledger;
-    use crate::prelude::*;
 
     #[test]
     fn test_ledger_write_path()
-        -> Result<()> {
+        -> anyhow::Result<()> {
         let path = std::path::Path::new("ledger.csv");
         let mut ledger = Ledger::new();
         ledger.add_entry("Alice", 1000);
@@ -94,7 +95,7 @@ mod test {
 
     #[test]
     #[ignore]
-    fn fill_with_random_data() -> Result<()> {
+    fn fill_with_random_data() -> anyhow::Result<()> {
         use rand::{Rng, thread_rng};
         let ledger_path = "ledger.csv";
         let popular_names = "popular-names.txt";

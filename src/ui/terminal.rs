@@ -15,36 +15,39 @@ use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
 };
 
-pub struct Crossterminal {
-    pub terminal: Terminal<CrosstermBackend<Stdout>>,
+pub struct TerminalHandler {
+    terminal: Terminal<CrosstermBackend<Stdout>>,
 }
 
-impl Crossterminal {
-    pub fn new() -> Result<Self> {
-        enable_raw_mode()
-            .map_err(|e| Error::TerminalIOError("Unable to enter raw mode",
-                                                e))?;
+impl TerminalHandler {
+    pub fn setup() -> anyhow::Result<Self> {
+        enable_raw_mode().with_context(|| "Unable to enter raw mode")?;
         let stdout = std::io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)
-            .map_err(|e| Error::TerminalIOError("Coudn't create new Terminal",
-                                                e))?;
+            .with_context(|| "Coudn't create new Terminal")?;
 
         execute!(
             terminal.backend_mut(),
             EnterAlternateScreen,
             EnableMouseCapture,
-        ).map_err(|e| Error::TerminalIOError("Unable to write to terminal", e))?;
+        ).with_context(|| "Unable to write to terminal")?;
+        terminal.clear().with_context(|| "Error Clearing Terminal Screen")?;
 
         Ok(Self {
             terminal,
         })
     }
+
+    pub fn terminal(&mut self) -> &mut Terminal<CrosstermBackend<Stdout>> {
+        &mut self.terminal
+    }
 }
 
-impl Drop for Crossterminal {
+impl Drop for TerminalHandler {
     fn drop(&mut self) {
         disable_raw_mode().expect("Failed to disable raw mode");
+        self.terminal.clear().expect("Failed to clear terminal");
         execute!(
             self.terminal.backend_mut(),
             LeaveAlternateScreen,
@@ -52,4 +55,3 @@ impl Drop for Crossterminal {
         ).expect("Failed to reset screen");
     }
 }
-
