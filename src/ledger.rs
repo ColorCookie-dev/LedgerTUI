@@ -31,10 +31,6 @@ impl Ledger {
         Ok(Self { records, /* totals, */ })
     }
 
-    pub fn len(&self) -> usize {
-        self.records.len()
-    }
-
     pub fn new() -> Self {
         Self { records: Vec::new() }
     }
