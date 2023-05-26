@@ -1,6 +1,6 @@
-mod record;
+use std::collections::HashMap;
 
-pub use record::Record;
+pub use super::Record;
 
 #[derive(Debug)]
 pub struct Ledger {
@@ -35,6 +35,10 @@ impl Ledger {
         Self { records: Vec::new() }
     }
 
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+
     pub fn save_to_path(&self, path: impl AsRef<std::path::Path>)
         -> anyhow::Result<()> {
         let mut writer = csv::Writer::from_path(path.as_ref())?;
@@ -58,6 +62,17 @@ impl Ledger {
         &self.totals
     }
     */
+
+    pub fn totals(&self) -> HashMap<&str, i32> {
+        let mut totals = HashMap::<&str, i32>::new();
+        self.records.iter().for_each(
+        |record| {
+            totals.entry(record.recipient())
+                .and_modify(|amount| *amount += record.amount())
+                .or_insert(record.amount());
+        });
+        totals
+    }
 
     pub fn total(&mut self, name: impl AsRef<str>) -> i32 {
         self.records.iter()
