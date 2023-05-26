@@ -6,8 +6,11 @@ use std::collections::HashMap;
 use std::time::Duration;
 use crossterm::event::{self, KeyCode, KeyEvent, Event, KeyModifiers, KeyEventKind, KeyEventState};
 use itertools::Itertools;
+use tui::Frame;
+use tui::backend::Backend;
 use tui::layout::{Corner, Rect};
 use tui::style::{Style, Color};
+use tui::terminal::CompletedFrame;
 use tui::widgets::{ListState, Block, Borders, List, ListItem};
 
 use crate::ui::TerminalHandler;
@@ -19,7 +22,7 @@ use crate::ledger::Record;
 // I need to add more screens with different states
 // All screens must have a way to draw themselves to frames
 // Each has to handle it's own key events
-//
+// Search ability in List Views
 
 pub enum App<'a> {
     RecordList(Vec<&'a Record>, ListState),
@@ -39,56 +42,34 @@ fn main() -> anyhow::Result<()> {
             let size = f.size();
             match &mut app {
                 App::RecordList(ref entries, ref mut state) => {
-                    let block = Block::default()
-                        .borders(Borders::ALL)
-                        .title("Entries");
-
                     let list_items = entries.iter().map(
                         |entry| ListItem::new(build_record(entry, size)))
                         .collect_vec();
-                    let list = List::new(&list_items[..])
-                        .block(block)
-                        .start_corner(Corner::TopLeft)
-                        .highlight_style(
-                            Style::default()
-                                .bg(Color::LightGreen)
-                         );
-
-                    f.render_stateful_widget(list, f.size(), state)
+                    draw_list(f, "Entries", &list_items[..], state);
                 }
                 App::TotalList(ref totals, ref mut state) => {
-                    let block = Block::default()
-                        .borders(Borders::ALL)
-                        .title("Totals");
-
                     let list_items = totals.iter().map(
                         |(name, amt)| ListItem::new(build_total_item(name, amt.clone(), size)))
                         .collect_vec();
-                    let list = List::new(&list_items[..])
-                        .block(block)
-                        .start_corner(Corner::TopLeft)
-                        .highlight_style(
-                            Style::default()
-                                .bg(Color::LightGreen)
-                         );
-
-                    f.render_stateful_widget(list, f.size(), state)
+                    draw_list(f, "Totals", &list_items[..], state);
                 }
             }
         })?;
 
         if event::poll(Duration::from_millis(250)).with_context(|| "Polling failed")? {
+            let event = event::read().with_context(|| "Failed to read event")?;
             match &mut app {
                 App::RecordList(ref entries, ref mut state) => {
-                    match event::read().with_context(|| "Failed to read event")? {
+                    match event {
                         Event::Key(key_event) => {
-                            if is_key_only(key_event, KeyCode::Char('q')) {
+                            let key_event = W(key_event);
+                            if key_event.key_only(KeyCode::Char('q')) {
                                 quit = true;
-                            } else if is_key_only(key_event, KeyCode::Char('t')) {
+                            } else if key_event.key_only(KeyCode::Char('t')) {
                                 app = App::TotalList(ledger.totals(), ListState::default());
-                            } else if is_key_only(key_event, KeyCode::Down) {
+                            } else if key_event.key_only(KeyCode::Down) {
                                 list_state_next(state, entries.len());
-                            } else if is_key_only(key_event, KeyCode::Up) {
+                            } else if key_event.key_only(KeyCode::Up) {
                                 list_state_previous(state, entries.len());
                             }
                         },
@@ -96,18 +77,18 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
                 App::TotalList(ref entries, ref mut state) => {
-                    match event::read().with_context(|| "Failed to read event")? {
+                    match event {
                         Event::Key(key_event) => {
-                            let key_event = key_event;
-                            if is_key_only(key_event, KeyCode::Char('q')) {
+                            let key_event = W(key_event);
+                            if key_event.key_only(KeyCode::Char('q')) {
                                 quit = true;
-                            } else if is_key_only(key_event, KeyCode::Char('a')) {
+                            } else if key_event.key_only(KeyCode::Char('a')) {
                                 app = App::RecordList(
                                     ledger.entries().collect_vec(),
                                     ListState::default());
-                            } else if is_key_only(key_event, KeyCode::Down) {
+                            } else if key_event.key_only(KeyCode::Down) {
                                 list_state_next(state, entries.len());
-                            } else if is_key_only(key_event, KeyCode::Up) {
+                            } else if key_event.key_only(KeyCode::Up) {
                                 list_state_previous(state, entries.len());
                             }
                         },
@@ -121,11 +102,34 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn is_key_only(key_event: KeyEvent, key_code: KeyCode) -> bool {
-    let KeyEvent {code, modifiers, kind, state: _} = key_event;
-    code == key_code &&
-        modifiers.is_empty() &&
-        kind == KeyEventKind::Press
+pub fn draw_list<'a>(
+    f: &mut Frame<impl Backend>,
+    title: &str,
+    list_items: &[ListItem<'a>],
+    state: &mut ListState,
+    ) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title);
+
+    let list = List::new(&list_items[..])
+        .block(block)
+        .start_corner(Corner::TopLeft)
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+         );
+
+    f.render_stateful_widget(list, f.size(), state)
+}
+
+impl W<KeyEvent> {
+    pub fn key_only(&self, key_code: KeyCode) -> bool {
+        let KeyEvent {code, modifiers, kind, state: _} = self.0;
+        code == key_code &&
+            modifiers.is_empty() &&
+            kind == KeyEventKind::Press
+    }
 }
 
 pub fn list_state_next(state: &mut ListState, total_size: usize) {
