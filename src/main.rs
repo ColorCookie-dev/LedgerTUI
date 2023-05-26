@@ -10,6 +10,7 @@ use tui::Frame;
 use tui::backend::Backend;
 use tui::layout::{Corner, Rect};
 use tui::style::{Style, Color};
+use tui::text::Text;
 use tui::widgets::{ListState, Block, Borders, List, ListItem};
 
 use crate::ui::TerminalHandler;
@@ -26,6 +27,7 @@ use crate::ledger::Record;
 pub enum App {
     RecordList(Vec<Record>, Option<usize>),
     TotalList(HashMap<String, i32>, Option<usize>),
+    AddEntry,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -33,7 +35,8 @@ fn main() -> anyhow::Result<()> {
     let mut terminal_handler = TerminalHandler::setup()
         .with_context(|| "Error Setting up App")?;
     // let mut app = App::RecordList(ledger.entries().collect_vec(), ListState::default());
-    let mut app = App::TotalList(ledger.totals(), None);
+    // let mut app = App::TotalList(ledger.totals(), None);
+    let mut app = App::AddEntry;
 
     let mut quit = false;
     while quit == false {
@@ -51,6 +54,11 @@ fn main() -> anyhow::Result<()> {
                         |(name, amt)| ListItem::new(build_total_item(name, amt.clone(), size)))
                         .collect_vec();
                     draw_selectable_list(f, "Totals", &list_items[..], selected.clone());
+                }
+                App::AddEntry => {
+                    todo!(); // Add A Screen to add new entries to ledger
+                             // Find a way to add editable text area in tui
+                    f.render_widget(text_area, size);
                 }
             }
         })?;
