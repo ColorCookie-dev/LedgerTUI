@@ -4,13 +4,12 @@ mod ui;
 
 use std::collections::HashMap;
 use std::time::Duration;
-use crossterm::event::{self, KeyCode, KeyEvent, Event, KeyModifiers, KeyEventKind, KeyEventState};
+use crossterm::event::{self, KeyCode, KeyEvent, Event, KeyEventKind};
 use itertools::Itertools;
 use tui::Frame;
 use tui::backend::Backend;
 use tui::layout::{Corner, Rect};
 use tui::style::{Style, Color};
-use tui::terminal::CompletedFrame;
 use tui::widgets::{ListState, Block, Borders, List, ListItem};
 
 use crate::ui::TerminalHandler;
@@ -24,9 +23,9 @@ use crate::ledger::Record;
 // Each has to handle it's own key events
 // Search ability in List Views
 
-pub enum App<'a> {
-    RecordList(Vec<&'a Record>, ListState),
-    TotalList(HashMap<&'a str, i32>, ListState),
+pub enum App {
+    RecordList(Vec<Record>, Option<usize>),
+    TotalList(HashMap<String, i32>, Option<usize>),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -34,80 +33,94 @@ fn main() -> anyhow::Result<()> {
     let mut terminal_handler = TerminalHandler::setup()
         .with_context(|| "Error Setting up App")?;
     // let mut app = App::RecordList(ledger.entries().collect_vec(), ListState::default());
-    let mut app = App::TotalList(ledger.totals(), ListState::default());
+    let mut app = App::TotalList(ledger.totals(), None);
 
     let mut quit = false;
     while quit == false {
         terminal_handler.terminal().draw(|f| {
             let size = f.size();
-            match &mut app {
-                App::RecordList(ref entries, ref mut state) => {
+            match &app {
+                App::RecordList(entries, selected) => {
                     let list_items = entries.iter().map(
                         |entry| ListItem::new(build_record(entry, size)))
                         .collect_vec();
-                    draw_list(f, "Entries", &list_items[..], state);
+                    draw_selectable_list(f, "Entries", &list_items[..], selected.clone());
                 }
-                App::TotalList(ref totals, ref mut state) => {
+                App::TotalList(totals, selected) => {
                     let list_items = totals.iter().map(
                         |(name, amt)| ListItem::new(build_total_item(name, amt.clone(), size)))
                         .collect_vec();
-                    draw_list(f, "Totals", &list_items[..], state);
+                    draw_selectable_list(f, "Totals", &list_items[..], selected.clone());
                 }
             }
         })?;
 
         if event::poll(Duration::from_millis(250)).with_context(|| "Polling failed")? {
-            let event = event::read().with_context(|| "Failed to read event")?;
-            match &mut app {
-                App::RecordList(ref entries, ref mut state) => {
-                    match event {
-                        Event::Key(key_event) => {
-                            let key_event = W(key_event);
-                            if key_event.key_only(KeyCode::Char('q')) {
-                                quit = true;
-                            } else if key_event.key_only(KeyCode::Char('t')) {
-                                app = App::TotalList(ledger.totals(), ListState::default());
-                            } else if key_event.key_only(KeyCode::Down) {
-                                list_state_next(state, entries.len());
-                            } else if key_event.key_only(KeyCode::Up) {
-                                list_state_previous(state, entries.len());
-                            }
-                        },
-                        _ => (),
-                    }
-                }
-                App::TotalList(ref entries, ref mut state) => {
-                    match event {
-                        Event::Key(key_event) => {
-                            let key_event = W(key_event);
-                            if key_event.key_only(KeyCode::Char('q')) {
-                                quit = true;
-                            } else if key_event.key_only(KeyCode::Char('a')) {
-                                app = App::RecordList(
-                                    ledger.entries().collect_vec(),
-                                    ListState::default());
-                            } else if key_event.key_only(KeyCode::Down) {
-                                list_state_next(state, entries.len());
-                            } else if key_event.key_only(KeyCode::Up) {
-                                list_state_previous(state, entries.len());
-                            }
-                        },
-                        _ => (),
-                    }
-                }
-            }
+            event_handler(
+                event::read().with_context(|| "Failed to read event")?,
+                &mut app,
+                &mut quit,
+                &mut ledger,
+            );
         }
     }
 
     Ok(())
 }
 
-pub fn draw_list<'a>(
+pub fn event_handler<>(
+    event: Event,
+    app: &mut App,
+    quit: &mut bool,
+    ledger: &Ledger,
+    ) {
+    match app {
+        App::RecordList(ref entries, ref mut state) => {
+            match event {
+                Event::Key(key_event) => {
+                    let key_event = W(key_event);
+                    if key_event.key_only(KeyCode::Char('q')) {
+                        *quit = true;
+                    } else if key_event.key_only(KeyCode::Char('t')) {
+                        *app = App::TotalList(ledger.totals(), None);
+                    } else if key_event.key_only(KeyCode::Down) {
+                        list_select_next(state, entries.len());
+                    } else if key_event.key_only(KeyCode::Up) {
+                        list_select_prev(state, entries.len());
+                    }
+                },
+                _ => (),
+            }
+        }
+        App::TotalList(ref entries, ref mut selected) => {
+            match event {
+                Event::Key(key_event) => {
+                    let key_event = W(key_event);
+                    if key_event.key_only(KeyCode::Char('q')) {
+                        *quit = true;
+                    } else if key_event.key_only(KeyCode::Char('a')) {
+                        *app = App::RecordList(ledger.entries(), None);
+                    } else if key_event.key_only(KeyCode::Down) {
+                        list_select_next(selected, entries.len());
+                    } else if key_event.key_only(KeyCode::Up) {
+                        list_select_prev(selected, entries.len());
+                    }
+                },
+                _ => (),
+            }
+        }
+    }
+}
+
+pub fn draw_selectable_list<'a>(
     f: &mut Frame<impl Backend>,
     title: &str,
     list_items: &[ListItem<'a>],
-    state: &mut ListState,
+    index: Option<usize>,
     ) {
+    let mut state = ListState::default();
+    state.select(index);
+
     let block = Block::default()
         .borders(Borders::ALL)
         .title(title);
@@ -120,7 +133,7 @@ pub fn draw_list<'a>(
                 .bg(Color::LightGreen)
          );
 
-    f.render_stateful_widget(list, f.size(), state)
+    f.render_stateful_widget(list, f.size(), &mut state)
 }
 
 impl W<KeyEvent> {
@@ -132,26 +145,19 @@ impl W<KeyEvent> {
     }
 }
 
-pub fn list_state_next(state: &mut ListState, total_size: usize) {
-    let i = match state.selected() {
-        Some(i) => (i + 1).rem_euclid(total_size),
-        None => 0,
-    };
-    state.select(Some(i));
+pub fn list_select_next(selected: &mut Option<usize>, total_size: usize) {
+    *selected = selected.map(|e| (e + 1).rem_euclid(total_size)).or(Some(0));
 }
 
-pub fn list_state_previous(state: &mut ListState, total_size: usize) {
-    let i = match state.selected() {
-        Some(i) => (i as i32 - 1).rem_euclid(total_size as i32),
-        None => 0,
-    };
-    state.select(Some(i as usize));
+pub fn list_select_prev(selected: &mut Option<usize>, total_size: usize) {
+    *selected = selected.map(
+        |e| (e as i32 - 1).rem_euclid(total_size as i32) as usize).or(Some(0));
 }
 
 pub fn build_total_item(recipient: &str, amount: i32, _size: Rect) -> String {
     format!("{name:<30}{space}{amount:>10}/-",
             name = recipient,
-            space = ": ", // " ".repeat(spacing as usize),
+            space = ": ",
             amount = amount,
     )
 }

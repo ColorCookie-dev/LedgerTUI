@@ -53,8 +53,8 @@ impl Ledger {
         self.records.push(Record::new(name, amount));
     }
 
-    pub fn entries(&self) -> impl Iterator<Item = &Record> {
-        self.records.iter()
+    pub fn entries(&self) -> Vec<Record> {
+        self.records.clone()
     }
 
     /*
@@ -63,11 +63,11 @@ impl Ledger {
     }
     */
 
-    pub fn totals(&self) -> HashMap<&str, i32> {
-        let mut totals = HashMap::<&str, i32>::new();
+    pub fn totals(&self) -> HashMap<String, i32> {
+        let mut totals = HashMap::<String, i32>::new();
         self.records.iter().for_each(
         |record| {
-            totals.entry(record.recipient())
+            totals.entry(record.recipient().to_string())
                 .and_modify(|amount| *amount += record.amount())
                 .or_insert(record.amount());
         });
@@ -83,7 +83,7 @@ impl Ledger {
 
 impl PartialEq for Ledger {
     fn eq(&self, other: &Self) -> bool {
-        self.entries().eq(other.entries())
+        self.records == other.records
     }
 }
 
