@@ -1,9 +1,13 @@
 mod terminal;
 mod selectable_list;
+mod record_list;
+mod total_list;
 
 use crossterm::event::Event;
 pub use terminal::TerminalHandler;
 pub use selectable_list::{DrawableList, SelectableList};
+pub use record_list::{RecordList, RecordListHandler};
+pub use total_list::{TotalList, TotalListHandler};
 
 use tui::Frame;
 use tui::backend::Backend;

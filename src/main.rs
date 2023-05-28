@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
         .with_context(|| "Error Setting up App")?;
     // let mut app = App::RecordList(ledger.entries().collect_vec(), ListState::default());
     let app_screen = AppScreen::new_total_screen(&ledger);
-    let mut app = AppState::new(app_screen, ledger);
+    let mut app = AppState::new(app_screen, ledger, false);
     // let mut app = AppScreen::AddEntry;
 
     while app.quit() == false {
