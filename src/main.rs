@@ -10,7 +10,6 @@ use tui::Frame;
 use tui::backend::Backend;
 use tui::layout::{Corner, Rect};
 use tui::style::{Style, Color};
-use tui::text::Text;
 use tui::widgets::{ListState, Block, Borders, List, ListItem};
 
 use crate::ui::TerminalHandler;
@@ -24,10 +23,39 @@ use crate::ledger::Record;
 // Each has to handle it's own key events
 // Search ability in List Views
 
-pub enum App {
+pub enum AppScreen {
     RecordList(Vec<Record>, Option<usize>),
     TotalList(HashMap<String, i32>, Option<usize>),
     AddEntry,
+}
+
+impl AppScreen {
+    pub fn replace(&mut self, other: AppScreen) {
+        *self = other;
+    }
+}
+
+pub struct AppState {
+    ledger: Ledger,
+    quit: bool,
+}
+
+impl AppState {
+    pub fn new(ledger: Ledger) -> Self {
+        Self { quit: false, ledger }
+    }
+
+    pub fn quit(&self) -> bool {
+        self.quit
+    }
+
+    pub fn mark_quit(&mut self) {
+        self.quit = true;
+    }
+
+    pub fn ledger(&mut self) -> &mut Ledger {
+        &mut self.ledger
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -35,30 +63,33 @@ fn main() -> anyhow::Result<()> {
     let mut terminal_handler = TerminalHandler::setup()
         .with_context(|| "Error Setting up App")?;
     // let mut app = App::RecordList(ledger.entries().collect_vec(), ListState::default());
-    // let mut app = App::TotalList(ledger.totals(), None);
-    let mut app = App::AddEntry;
+    let mut app = AppScreen::TotalList(ledger.totals(), None);
+    let mut app_state = AppState::new(ledger);
+    // let mut app = AppScreen::AddEntry;
 
-    let mut quit = false;
-    while quit == false {
+    while app_state.quit() == false {
         terminal_handler.terminal().draw(|f| {
             let size = f.size();
             match &app {
-                App::RecordList(entries, selected) => {
-                    let list_items = entries.iter().map(
-                        |entry| ListItem::new(build_record(entry, size)))
+                AppScreen::RecordList(entries, selected) => {
+                    let list_items = entries
+                        .iter()
+                        .map(|entry| ListItem::new(build_record(entry, size)))
                         .collect_vec();
-                    draw_selectable_list(f, "Entries", &list_items[..], selected.clone());
+                    draw_selectable_list(f, "Entries", &list_items[..], *selected);
                 }
-                App::TotalList(totals, selected) => {
-                    let list_items = totals.iter().map(
-                        |(name, amt)| ListItem::new(build_total_item(name, amt.clone(), size)))
+                AppScreen::TotalList(totals, selected) => {
+                    let list_items = totals
+                        .iter()
+                        .map(|(name, amt)| ListItem::new(
+                                build_total_item(name, amt.clone(), size)
+                            ))
                         .collect_vec();
-                    draw_selectable_list(f, "Totals", &list_items[..], selected.clone());
+                    draw_selectable_list(f, "Totals", &list_items[..], *selected);
                 }
-                App::AddEntry => {
+                AppScreen::AddEntry => {
                     todo!(); // Add A Screen to add new entries to ledger
                              // Find a way to add editable text area in tui
-                    f.render_widget(text_area, size);
                 }
             }
         })?;
@@ -67,8 +98,7 @@ fn main() -> anyhow::Result<()> {
             event_handler(
                 event::read().with_context(|| "Failed to read event")?,
                 &mut app,
-                &mut quit,
-                &mut ledger,
+                &mut app_state,
             );
         }
     }
@@ -76,38 +106,24 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn event_handler<>(
+pub fn event_handler(
     event: Event,
-    app: &mut App,
-    quit: &mut bool,
-    ledger: &Ledger,
+    app_screen: &mut AppScreen,
+    app_state: &mut AppState,
     ) {
-    match app {
-        App::RecordList(ref entries, ref mut state) => {
+    match app_screen {
+        AppScreen::RecordList(ref entries, ref mut selected) => {
             match event {
                 Event::Key(key_event) => {
                     let key_event = W(key_event);
                     if key_event.key_only(KeyCode::Char('q')) {
-                        *quit = true;
+                        app_state.mark_quit();
                     } else if key_event.key_only(KeyCode::Char('t')) {
-                        *app = App::TotalList(ledger.totals(), None);
-                    } else if key_event.key_only(KeyCode::Down) {
-                        list_select_next(state, entries.len());
-                    } else if key_event.key_only(KeyCode::Up) {
-                        list_select_prev(state, entries.len());
-                    }
-                },
-                _ => (),
-            }
-        }
-        App::TotalList(ref entries, ref mut selected) => {
-            match event {
-                Event::Key(key_event) => {
-                    let key_event = W(key_event);
-                    if key_event.key_only(KeyCode::Char('q')) {
-                        *quit = true;
-                    } else if key_event.key_only(KeyCode::Char('a')) {
-                        *app = App::RecordList(ledger.entries(), None);
+                        let totalscreen = AppScreen::TotalList(
+                            app_state.ledger().totals(),
+                            None
+                        );
+                        app_screen.replace(totalscreen);
                     } else if key_event.key_only(KeyCode::Down) {
                         list_select_next(selected, entries.len());
                     } else if key_event.key_only(KeyCode::Up) {
@@ -116,6 +132,29 @@ pub fn event_handler<>(
                 },
                 _ => (),
             }
+        }
+        AppScreen::TotalList(ref entries, ref mut selected) => {
+            match event {
+                Event::Key(key_event) => {
+                    let key_event = W(key_event);
+                    if key_event.key_only(KeyCode::Char('q')) {
+                        app_state.mark_quit();
+                    } else if key_event.key_only(KeyCode::Char('a')) {
+                        let ledger = app_state.ledger();
+                        let record_list = AppScreen::RecordList(
+                            ledger.entries(), None,);
+                        app_screen.replace(record_list);
+                    } else if key_event.key_only(KeyCode::Down) {
+                        list_select_next(selected, entries.len());
+                    } else if key_event.key_only(KeyCode::Up) {
+                        list_select_prev(selected, entries.len());
+                    }
+                },
+                _ => (),
+            }
+        }
+        AppScreen::AddEntry => {
+            unimplemented!();
         }
     }
 }
