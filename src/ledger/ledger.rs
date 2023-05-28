@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
+
 pub use super::Record;
 
 #[derive(Debug)]
@@ -63,7 +65,7 @@ impl Ledger {
     }
     */
 
-    pub fn totals(&self) -> HashMap<String, i32> {
+    pub fn totals(&self) -> Vec<(String, i32)> {
         let mut totals = HashMap::<String, i32>::new();
         self.records.iter().for_each(
         |record| {
@@ -72,6 +74,9 @@ impl Ledger {
                 .or_insert(record.amount());
         });
         totals
+            .iter()
+            .map(|(name, amt)| (name.to_owned(), amt.to_owned()))
+            .collect_vec()
     }
 
     pub fn total(&mut self, name: impl AsRef<str>) -> i32 {
