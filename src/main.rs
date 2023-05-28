@@ -10,6 +10,7 @@ use crate::app::*;
 use crate::ui::TerminalHandler;
 use crate::prelude::*;
 use crate::ledger::Ledger;
+use crate::ui::{Drawable, EventHandler};
 
 // TODO:
 // I need to add more screens with different states
