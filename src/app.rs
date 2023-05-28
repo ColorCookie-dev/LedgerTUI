@@ -116,13 +116,11 @@ impl EventHandler for TotalListHandler {
                 } else if key_event.key_only(KeyCode::Char('a')) {
                     screen = Some(AppScreen::new_record_screen(&self.ledger));
                 } else if key_event.key_only(KeyCode::Down) {
-                    let list_len = self.list.list.len();
-                    let index = self.list.index;
-                    self.list.index = W(index.clone()).next(list_len);
+                    let list_len = self.list.len();
+                    self.list = self.list.next(list_len);
                 } else if key_event.key_only(KeyCode::Up) {
-                    let list_len = self.list.list.len();
-                    let index = self.list.index;
-                    self.list.index = W(index.clone()).prev(list_len);
+                    let list_len = self.list.len();
+                    self.list = self.list.prev(list_len);
                 }
             },
             _ => (),
@@ -153,13 +151,11 @@ impl EventHandler for RecordListHandler {
                 } else if key_event.key_only(KeyCode::Char('t')) {
                     screen = Some(AppScreen::new_total_screen(&self.ledger));
                 } else if key_event.key_only(KeyCode::Down) {
-                    let list_len = self.list.list.len();
-                    let index = self.list.index;
-                    self.list.index = W(index).next(list_len);
+                    let list_len = self.list.len();
+                    self.list = self.list.next(list_len);
                 } else if key_event.key_only(KeyCode::Up) {
-                    let list_len = self.list.list.len();
-                    let index = self.list.index;
-                    self.list.index = W(index).prev(list_len);
+                    let list_len = self.list.len();
+                    self.list = self.list.prev(list_len);
                 }
             },
             _ => (),
@@ -204,6 +200,46 @@ pub struct SelectableList<T> {
     index: Option<usize>,
 }
 
+impl<T> SelectableList<T> {
+    pub fn new(list: Vec<T>) -> Self {
+        Self { list, title: None, index: None }
+    }
+
+    pub fn len(&self) -> usize {
+        self.list.len()
+    }
+
+    pub fn title(mut self, title: impl ToString) -> Self {
+        self.title = Some(title.to_string());
+        self
+    }
+
+    pub fn next(mut self, total_size: usize) -> Self {
+        self.index = self.index
+            .map(|e| (e + 1).rem_euclid(total_size))
+            .or(Some(0));
+        self
+    }
+
+    pub fn prev(mut self, total_size: usize) -> Self {
+        self.index = self.index
+            .map(|e| (e as i32 - 1).rem_euclid(total_size as i32) as usize)
+            .or(Some(0));
+        self
+    }
+
+    pub fn index(mut self, index: usize) -> Self {
+        self.index = Some(index);
+        self
+    }
+
+    pub fn make_drawable<F>(&self, item_builder: F) -> DrawableList<T, F>
+    where F: Fn(&T, Rect) -> String,
+    {
+        DrawableList { list: self, item_builder }
+    }
+}
+
 pub struct DrawableList<'a, T, F>
 where F: Fn(&T, Rect) -> String,
 {
@@ -242,48 +278,12 @@ where F: Fn(&T, Rect) -> String,
     }
 }
 
-impl<T> SelectableList<T> {
-    pub fn new(list: Vec<T>) -> Self {
-        Self { list, title: None, index: None }
-    }
-
-    pub fn title(mut self, title: impl ToString) -> Self {
-        self.title = Some(title.to_string());
-        self
-    }
-
-    pub fn index(mut self, index: usize) -> Self {
-        self.index = Some(index);
-        self
-    }
-
-    pub fn make_drawable<F>(&self, item_builder: F) -> DrawableList<T, F>
-    where F: Fn(&T, Rect) -> String,
-    {
-        DrawableList { list: self, item_builder }
-    }
-}
-
 impl W<KeyEvent> {
     pub fn key_only(&self, key_code: KeyCode) -> bool {
         let KeyEvent {code, modifiers, kind, state: _} = self.0;
         code == key_code &&
             modifiers.is_empty() &&
             kind == KeyEventKind::Press
-    }
-}
-
-impl W<Option<usize>> {
-    pub fn next(&mut self, total_size: usize) -> Option<usize> {
-        self.0
-            .map(|e| (e + 1).rem_euclid(total_size))
-            .or(Some(0))
-    }
-
-    pub fn prev(&mut self, total_size: usize) -> Option<usize> {
-        self.0
-            .map(|e| (e as i32 - 1).rem_euclid(total_size as i32) as usize)
-            .or(Some(0))
     }
 }
 
