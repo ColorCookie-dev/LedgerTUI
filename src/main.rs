@@ -14,12 +14,10 @@ use crate::ui::{Drawable, EventHandler};
 
 // TODO:
 // I need to add more screens with different states
-// All screens must have a way to draw themselves to frames
-// Each has to handle it's own key events
 // Search ability in List Views
 
 fn main() -> anyhow::Result<()> {
-    let mut ledger = Ledger::from_path("ledger.csv")?;
+    let ledger = Ledger::from_path("ledger.csv")?;
     let mut terminal_handler = TerminalHandler::setup()
         .with_context(|| "Error Setting up App")?;
     // let mut app = App::RecordList(ledger.entries().collect_vec(), ListState::default());
